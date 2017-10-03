@@ -10,12 +10,20 @@
 #include <string.h>
 #include <wiiuse/wpad.h>
 #include <ogc/isfs.h>
+#include <ogc/machine/processor.h>
 #include <malloc.h>
 #include <unistd.h>
 #include "ChannelHandler.hpp"
 #include "identify.h"
 #include "fs.h"
 #include "wdvd.h"
+
+//comment in if you want to boot the channel in 4:3
+//#define BOOT_FORCE_4_BY_3 1
+//comment in if you want to boot from a title id you edited in below
+//#define BOOT_FROM_CODE_TITLEID 1
+
+u64 title = 0x0001000100000000ULL;
 
 //used externally
 u8 *tmdBuffer = NULL;
@@ -58,7 +66,6 @@ static inline bool apply_patch(const char *name, const u8 *old, const u8 *patch,
 
 extern "C" { extern void __exception_closeall(); };
 u32 AppEntrypoint = 0;
-u64 title = 0x0001000100000000ULL;
 
 int main(int argc, char *argv[]) 
 {
@@ -79,7 +86,7 @@ int main(int argc, char *argv[])
 	h = rmode->xfbHeight - (48);
 	CON_InitEx(rmode, x, y, w, h);
 	VIDEO_ClearFrameBuffer(rmode, xfb, COLOR_BLACK);
-
+#ifndef BOOT_FROM_CODE_TITLEID
 	if(WDVD_Init() != 0)
 	{
 		printf("The Wii VC Disc could not be initialized!\n");
@@ -114,7 +121,7 @@ int main(int argc, char *argv[])
 	WDVD_FST_Close();
 	WDVD_FST_Unmount();
 	WDVD_Close();
-
+#endif
 	apply_patch("isfs_permissions_wiivc", isfs_perm_wiivc_old, isfs_perm_wiivc_patch, sizeof(isfs_perm_wiivc_patch));
 	apply_patch("es_setuid", setuid_old, setuid_patch, sizeof(setuid_patch));
 	apply_patch("es_identify", es_identify_old, es_identify_patch, sizeof(es_identify_patch));
@@ -160,6 +167,11 @@ int main(int argc, char *argv[])
 	//printf("Entrypoint: %08lx AHBPROT: %08lx\n", AppEntrypoint, *(vu32*)0xCD800064);
 	//sleep(3);
 	free(tmdBuffer);
+
+#ifdef BOOT_FORCE_4_BY_3
+	write32(0xd8006a0, 0x30000002);
+	mask32(0xd8006a8, 0, 2);
+#endif
 
 	/* Set black and flush */
 	VIDEO_SetBlack(TRUE);
